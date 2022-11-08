@@ -7,100 +7,99 @@ from .shapes import GroupShape, DrawStyle
 
 
 class NuCanvas(GroupShape):
-  '''This is a clone of the Tk canvas subset used by the original Tcl
-     It implements an abstracted canvas that can render objects to different
-     backends other than just a Tk canvas widget.
-  '''
-  def __init__(self, surf):
-    GroupShape.__init__(self, surf, 0, 0, {})
-    self.markers = {}
+    '''This is a clone of the Tk canvas subset used by the original Tcl
+       It implements an abstracted canvas that can render objects to different
+       backends other than just a Tk canvas widget.
+    '''
 
-  def set_surface(self, surf):
-    self.surf = surf
+    def __init__(self, surf):
+        GroupShape.__init__(self, surf, 0, 0, {})
+        self.markers = {}
 
-  def clear_shapes(self):
-    self.shapes = []
+    def set_surface(self, surf):
+        self.surf = surf
 
-  def _get_shapes(self, item=None):
-    # Filter shapes
-    if item is None or item == 'all':
-      shapes = self.shapes
-    else:
-      shapes = [s for s in self.shapes if s.is_tagged(item)]
-    return shapes
+    def clear_shapes(self):
+        self.shapes = []
 
-  def render(self, transparent):
-    self.surf.render(self, transparent)
+    def _get_shapes(self, item=None):
+        # Filter shapes
+        if item is None or item == 'all':
+            shapes = self.shapes
+        else:
+            shapes = [s for s in self.shapes if s.is_tagged(item)]
+        return shapes
 
-  def add_marker(self, name, shape, ref=(0,0), orient='auto', units='stroke'):
-    self.markers[name] = (shape, ref, orient, units)
+    def render(self, transparent):
+        self.surf.render(self, transparent)
 
-  def bbox(self, item=None):
-    bx0 = 0
-    bx1 = 0
-    by0 = 0
-    by1 = 0
+    def add_marker(self, name, shape, ref=(0, 0), orient='auto', units='stroke'):
+        self.markers[name] = (shape, ref, orient, units)
 
-    boxes = [s.bbox for s in self._get_shapes(item)]
-    boxes = list(zip(*boxes))
-    if len(boxes) > 0:
-      bx0 = min(boxes[0])
-      by0 = min(boxes[1])
-      bx1 = max(boxes[2])
-      by1 = max(boxes[3])
+    def bbox(self, item=None):
+        bx0 = 0
+        bx1 = 0
+        by0 = 0
+        by1 = 0
 
-    return [bx0, by0, bx1, by1]
+        boxes = [s.bbox for s in self._get_shapes(item)]
+        boxes = list(zip(*boxes))
+        if len(boxes) > 0:
+            bx0 = min(boxes[0])
+            by0 = min(boxes[1])
+            bx1 = max(boxes[2])
+            by1 = max(boxes[3])
 
-  def move(self, item, dx, dy):
-    for s in self._get_shapes(item):
-      s.move(dx, dy)
+        return [bx0, by0, bx1, by1]
 
-  def tag_raise(self, item):
-    to_raise = self._get_shapes(item)
-    for s in to_raise:
-      self.shapes.remove(s)
-    self.shapes.extend(to_raise)
+    def move(self, item, dx, dy):
+        for s in self._get_shapes(item):
+            s.move(dx, dy)
 
-  def addtag_withtag(self, tag, item):
-    for s in self._get_shapes(item):
-      s.addtag(tag)
+    def tag_raise(self, item):
+        to_raise = self._get_shapes(item)
+        for s in to_raise:
+            self.shapes.remove(s)
+        self.shapes.extend(to_raise)
 
+    def addtag_withtag(self, tag, item):
+        for s in self._get_shapes(item):
+            s.addtag(tag)
 
-  def dtag(self, item, tag=None):
-    for s in self._get_shapes(item):
-      s.dtag(tag)
+    def dtag(self, item, tag=None):
+        for s in self._get_shapes(item):
+            s.dtag(tag)
 
-  def draw(self, c):
-    '''Draw all shapes on the canvas'''
-    for s in self.shapes:
-      tk_draw_shape(s, c)
+    def draw(self, c):
+        '''Draw all shapes on the canvas'''
+        for s in self.shapes:
+            tk_draw_shape(s, c)
 
-  def delete(self, item):
-    for s in self._get_shapes(item):
-      self.shapes.remove(s)
+    def delete(self, item):
+        for s in self._get_shapes(item):
+            self.shapes.remove(s)
 
 
 if __name__ == '__main__':
 
-  from .svg_backend import SvgSurface
-  from .cairo_backend import CairoSurface
-  from .shapes import PathShape
+    from .svg_backend import SvgSurface
+    from .cairo_backend import CairoSurface
+    from .shapes import PathShape
 
-  #surf = CairoSurface('nc.png', DrawStyle(), padding=5, scale=2)
-  surf = SvgSurface('nc.svg', DrawStyle(), padding=5, scale=2)
+    #surf = CairoSurface('nc.png', DrawStyle(), padding=5, scale=2)
+    surf = SvgSurface('nc.svg', DrawStyle(), padding=5, scale=2)
 
-  #surf.add_shape_class(DoubleRectShape, cairo_draw_DoubleRectShape)
+    #surf.add_shape_class(DoubleRectShape, cairo_draw_DoubleRectShape)
 
-  nc = NuCanvas(surf)
+    nc = NuCanvas(surf)
 
+    nc.add_marker('arrow_fwd',
+                  PathShape(((0, -4), (2, -1, 2, 1, 0, 4), (8, 0), 'z'), fill=(0, 0, 0, 120), width=0),
+                  (3.2, 0), 'auto')
 
-  nc.add_marker('arrow_fwd',
-    PathShape(((0,-4), (2,-1, 2,1, 0,4), (8,0), 'z'), fill=(0,0,0, 120), width=0),
-    (3.2,0), 'auto')
-
-  nc.add_marker('arrow_back',
-    PathShape(((0,-4), (-2,-1, -2,1, 0,4), (-8,0), 'z'), fill=(0,0,0, 120), width=0),
-    (-3.2,0), 'auto')
+    nc.add_marker('arrow_back',
+                  PathShape(((0, -4), (-2, -1, -2, 1, 0, 4), (-8, 0), 'z'), fill=(0, 0, 0, 120), width=0),
+                  (-3.2, 0), 'auto')
 
 #
 #  nc.create_rectangle(5,5, 20,20, fill=(255,0,0,127))
@@ -128,27 +127,26 @@ if __name__ == '__main__':
 #  nc.create_path([(20,40), (30,70), (40,120, 60,50, 10), (60, 50, 80,90, 10), (80, 90, 150,89, 15),
 #       (150, 89), (130,20), 'z'], width=1)
 
-  nc.create_line(30,50, 200,100, width=5, line_color=(200,100,50,100), marker_start='arrow_back',
-    marker_end='arrow_fwd')
+    nc.create_line(30, 50, 200, 100, width=5, line_color=(200, 100, 50, 100), marker_start='arrow_back',
+                   marker_end='arrow_fwd')
 
+    nc.create_rectangle(30, 85, 60, 105, width=1, line_color=(255, 0, 0))
+    nc.create_line(30, 90, 60, 90, width=2, marker_start='arrow_back',
+                   marker_end='arrow_fwd')
 
-  nc.create_rectangle(30,85, 60,105, width=1, line_color=(255,0,0))
-  nc.create_line(30,90, 60,90, width=2, marker_start='arrow_back',
-    marker_end='arrow_fwd')
-
-  nc.create_line(30,100, 60,100, width=2, marker_start='arrow_back',
-    marker_end='arrow_fwd', marker_adjust=1.0)
+    nc.create_line(30, 100, 60, 100, width=2, marker_start='arrow_back',
+                   marker_end='arrow_fwd', marker_adjust=1.0)
 
 
 #        ls.options['marker_start'] = 'arrow_back'
 #      ls.options['marker_end'] = 'arrow_fwd'
 #      ls.options['marker_adjust'] = 0.8
 
-  nc.create_oval(50-2,80-2, 50+2,80+2, width=0, fill=(255,0,0))
-  nc.create_text(50,80, text='Hello world', anchor='nw', font=('Helvetica', 14, 'normal'), text_color=(0,0,0), spacing=-8)
+    nc.create_oval(50 - 2, 80 - 2, 50 + 2, 80 + 2, width=0, fill=(255, 0, 0))
+    nc.create_text(50, 80, text='Hello world', anchor='nw', font=('Helvetica', 14, 'normal'), text_color=(0, 0, 0), spacing=-8)
 
-  nc.create_oval(50-2,100-2, 50+2,100+2, width=0, fill=(255,0,0))
-  nc.create_text(50,100, text='Hello world', anchor='ne')
+    nc.create_oval(50 - 2, 100 - 2, 50 + 2, 100 + 2, width=0, fill=(255, 0, 0))
+    nc.create_text(50, 100, text='Hello world', anchor='ne')
 
-  surf.draw_bbox = True
-  nc.render()
+    surf.draw_bbox = True
+    nc.render(True)

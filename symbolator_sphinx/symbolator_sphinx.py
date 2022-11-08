@@ -12,21 +12,19 @@
     :license: BSD, see LICENSE.Sphinx for details.
 """
 
-import re
 import codecs
 import posixpath
 from errno import ENOENT, EPIPE, EINVAL
 from os import path
 from subprocess import Popen, PIPE
 from hashlib import sha1
-
-from six import text_type
+from typing import Any, Dict, List, Tuple, Optional
 
 from docutils import nodes
 from docutils.parsers.rst import Directive, directives
 from docutils.statemachine import ViewList
 
-import sphinx
+from sphinx.application import Sphinx
 from sphinx.errors import SphinxError
 from sphinx.locale import _, __
 from sphinx.util import logging
@@ -50,8 +48,7 @@ class symbolator(nodes.General, nodes.Inline, nodes.Element):
     pass
 
 
-def figure_wrapper(directive, node, caption):
-    # type: (Directive, nodes.Node, unicode) -> nodes.figure
+def figure_wrapper(directive: Directive, node: symbolator, caption: str):
     figure_node = nodes.figure('', node)
     if 'align' in node:
         figure_node['align'] = node.attributes.pop('align')
@@ -67,8 +64,7 @@ def figure_wrapper(directive, node, caption):
     return figure_node
 
 
-def align_spec(argument):
-    # type: (Any) -> bool
+def align_spec(argument) -> bool:
     return directives.choice(argument, ('left', 'center', 'right'))
 
 
@@ -88,14 +84,13 @@ class Symbolator(Directive):
         'name': directives.unchanged,
     }
 
-    def run(self):
-        # type: () -> List[nodes.Node]
+    def run(self) -> List[nodes.Node]:
         if self.arguments:
             document = self.state.document
             if self.content:
                 return [document.reporter.warning(
                     __('Symbolator directive cannot have both content and '
-                    'a filename argument'), line=self.lineno)]
+                       'a filename argument'), line=self.lineno)]
             env = self.state.document.settings.env
             argument = search_image_for_language(self.arguments[0], env)
             rel_filename, filename = env.relfn2path(argument)
@@ -106,7 +101,7 @@ class Symbolator(Directive):
             except (IOError, OSError):
                 return [document.reporter.warning(
                     __('External Symbolator file %r not found or reading '
-                    'it failed') % filename, line=self.lineno)]
+                       'it failed') % filename, line=self.lineno)]
         else:
             symbolator_code = '\n'.join(self.content)
             if not symbolator_code.strip():
@@ -124,7 +119,7 @@ class Symbolator(Directive):
             node['align'] = self.options['align']
 
         if 'name' in self.options:
-          node['options']['name'] = self.options['name']
+            node['options']['name'] = self.options['name']
 
         caption = self.options.get('caption')
         if caption:
@@ -134,9 +129,7 @@ class Symbolator(Directive):
         return [node]
 
 
-
-def render_symbol(self, code, options, format, prefix='symbol'):
-    # type: (nodes.NodeVisitor, unicode, Dict, unicode, unicode) -> Tuple[unicode, unicode]
+def render_symbol(self, code: str, options: Dict[str, Any], format: str, prefix: str = 'symbol') -> Tuple[Optional[str], Optional[str]]:
     """Render symbolator code into a PNG or SVG output file."""
 
     symbolator_cmd = options.get('symbolator_cmd', self.builder.config.symbolator_cmd)
@@ -159,15 +152,38 @@ def render_symbol(self, code, options, format, prefix='symbol'):
     ensuredir(path.dirname(outfn))
 
     # Symbolator expects UTF-8 by default
-    if isinstance(code, text_type):
-        code = code.encode('utf-8')
+    assert isinstance(code, str)
+    code_bytes: bytes = code.encode('utf-8')
 
     cmd_args = [symbolator_cmd]
     cmd_args.extend(self.builder.config.symbolator_cmd_args)
     cmd_args.extend(['-i', '-', '-f', format, '-o', outfn])
 
     try:
-        p = Popen(cmd_args, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+        with Popen(cmd_args, stdout=PIPE, stdin=PIPE, stderr=PIPE) as p:
+            try:
+                # Symbolator may close standard input when an error occurs,
+                # resulting in a broken pipe on communicate()
+                stdout, stderr = p.communicate(code_bytes)
+            except (OSError, IOError) as err:
+                if err.errno not in (EPIPE, EINVAL):
+                    raise
+                # in this case, read the standard output and standard error streams
+                # directly, to get the error message(s)
+                if p.stdout and p.stderr:
+                    stdout, stderr = p.stdout.read(), p.stderr.read()
+                    p.wait()
+                else:
+                    stdout, stderr = None, None
+            if stdout and stderr:
+                stdout_str, stderr_str = stdout.decode('utf-8'), stderr.decode('utf-8')
+                if p.returncode != 0:
+                    raise SymbolatorError(f'symbolator exited with error:\n[stderr]\n{stderr_str}\n'
+                                          f'[stdout]\n{stdout_str}')
+                if not path.isfile(outfn):
+                    raise SymbolatorError(f'symbolator did not produce an output file:\n[stderr]\n{stderr_str}\n'
+                                          f'[stdout]\n{stdout_str}')
+            return relfn, outfn
     except OSError as err:
         if err.errno != ENOENT:   # No such file or directory
             raise
@@ -177,34 +193,15 @@ def render_symbol(self, code, options, format, prefix='symbol'):
             self.builder._symbolator_warned_cmd = {}
         self.builder._symbolator_warned_cmd[symbolator_cmd] = True
         return None, None
-    try:
-        # Symbolator may close standard input when an error occurs,
-        # resulting in a broken pipe on communicate()
-        stdout, stderr = p.communicate(code)
-    except (OSError, IOError) as err:
-        if err.errno not in (EPIPE, EINVAL):
-            raise
-        # in this case, read the standard output and standard error streams
-        # directly, to get the error message(s)
-        stdout, stderr = p.stdout.read(), p.stderr.read()
-        p.wait()
-    if p.returncode != 0:
-        raise SymbolatorError('symbolator exited with error:\n[stderr]\n%s\n'
-                            '[stdout]\n%s' % (stderr, stdout))
-    if not path.isfile(outfn):
-        raise SymbolatorError('symbolator did not produce an output file:\n[stderr]\n%s\n'
-                            '[stdout]\n%s' % (stderr, stdout))
-    return relfn, outfn
 
 
-def render_symbol_html(self, node, code, options, prefix='symbol',
-                    imgcls=None, alt=None):
-    # type: (nodes.NodeVisitor, symbolator, unicode, Dict, unicode, unicode, unicode) -> Tuple[unicode, unicode]  # NOQA
+def render_symbol_html(self, node, code, options, prefix='symbol', imgcls=None, alt=None):
+    # type: (nodes.NodeVisitor, symbolator, str, Dict, str, str, str) -> Tuple[str, str]  # NOQA
     format = self.builder.config.symbolator_output_format
     try:
         if format not in ('png', 'svg'):
             raise SymbolatorError("symbolator_output_format must be one of 'png', "
-                                "'svg', but is %r" % format)
+                                  "'svg', but is %r" % format)
         fname, outfn = render_symbol(self, code, options, format, prefix)
     except SymbolatorError as exc:
         logger.warning('symbolator code %r: ' % code + str(exc))
@@ -238,7 +235,7 @@ def html_visit_symbolator(self, node):
 
 
 def render_symbol_latex(self, node, code, options, prefix='symbol'):
-    # type: (nodes.NodeVisitor, symbolator, unicode, Dict, unicode) -> None
+    # type: (nodes.NodeVisitor, symbolator, str, Dict, str) -> None
     try:
         fname, outfn = render_symbol(self, code, options, 'pdf', prefix)
     except SymbolatorError as exc:
@@ -252,7 +249,7 @@ def render_symbol_latex(self, node, code, options, prefix='symbol'):
         para_separator = '\n'
 
     if fname is not None:
-        post = None  # type: unicode
+        post: Optional[str] = None
         if not is_inline and 'align' in node:
             if node['align'] == 'left':
                 self.body.append('{')
@@ -274,7 +271,7 @@ def latex_visit_symbolator(self, node):
 
 
 def render_symbol_texinfo(self, node, code, options, prefix='symbol'):
-    # type: (nodes.NodeVisitor, symbolator, unicode, Dict, unicode) -> None
+    # type: (nodes.NodeVisitor, symbolator, str, Dict, str) -> None
     try:
         fname, outfn = render_symbol(self, code, options, 'png', prefix)
     except SymbolatorError as exc:
@@ -308,8 +305,7 @@ def man_visit_symbolator(self, node):
     raise nodes.SkipNode
 
 
-def setup(app):
-    # type: (Sphinx) -> Dict[unicode, Any]
+def setup(app: Sphinx) -> Dict[str, Any]:
     app.add_node(symbolator,
                  html=(html_visit_symbolator, None),
                  latex=(latex_visit_symbolator, None),
