@@ -1,4 +1,4 @@
-.. image:: http://kevinpt.github.io/symbolator/_static/symbolator_icon.png
+.. image:: https://hdl.github.io/symbolator/_static/symbolator_icon.png
 
 ==========
 Symbolator
@@ -40,7 +40,7 @@ Symbolator is a component diagramming tool for VHDL and Verilog. It will parse H
 
 Produces the following:
 
-.. image:: http://kevinpt.github.io/symbolator/_images/demo_device-demo_device.svg
+.. image:: https://hdl.github.io/symbolator/_images/demo_device-demo_device.svg
 
 
 Symbolator can render to PNG bitmap images or SVG, PDF, PS, and EPS vector images. SVG is the default.
@@ -52,7 +52,13 @@ Requirements
 
 Symbolator requires Python 3.x, Pycairo, and Pango. Symbolator no longer supports Python 2.x.
 
-The Pango library is used compute the dimensions of a text layout. There is no standard package to get the Pango Python bindings installed. It is a part of the Gtk+ library which is accessed either through the PyGtk or PyGObject APIs, both of which are supported by Symbolator. You should make sure that one of these libraries is available before installing Symbolator. A `Windows installer <http://www.pygtk.org/downloads.html>`_ is available. For Linux distributions you should install the relevant libraries with your package manager.
+The Pango library is used compute the dimensions of a text layout. There is no standard package to get the Pango Python bindings installed. It is a part of the Gtk+ library which is accessed either through the PyGtk or PyGObject APIs, both of which are supported by Symbolator. You should make sure that one of these libraries is available before installing Symbolator. A `Windows installer <https://www.pygtk.org/downloads.html>`_ is available. For Linux distributions you should install the relevant libraries with your package manager.
+
+If you are running linux you can use the `nix package manager <https://nixos.org/download.html>`_ to build and run symbolator without installing it:
+
+```
+nix run github:hdl/symbolator
+```
 
 Licensing
 ---------
@@ -64,11 +70,11 @@ Download
 --------
 
 You can access the Symbolator Git repository from `Github
-<https://github.com/kevinpt/symbolator>`_. You can install direct from PyPI with the "pip"
+<https://github.com/hdl/symbolator>`_. You can install direct from PyPI with the "pip"
 command if you have it available.
 
 Documentation
 -------------
 
 The full documentation is available online at the `main Symbolator site
-<http://kevinpt.github.io/symbolator/>`_.
+<https://hdl.github.io/symbolator/>`_.
